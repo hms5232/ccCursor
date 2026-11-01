@@ -1,0 +1,8 @@
+{
+  "uuid": "cc-cursor@hhming.moe",
+  "name": "ccCursor",
+  "description": "Double-tap Ctrl to spotlight your mouse cursor, like PowerToys Find My Mouse. The rest of the screen dims and a ring zooms in on the pointer, so it is easy to find on multi-monitor and high-resolution setups.\n\nUses GNOME's built-in 'locate pointer' key (Left Ctrl by default), so it works on Wayland without monitoring the keyboard.",
+  "shell-version": ["46"],
+  "settings-schema": "org.gnome.shell.extensions.cc-cursor",
+  "version-name": "0.1.0"
+}

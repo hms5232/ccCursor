@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.cc-cursor" path="/org/gnome/shell/extensions/cc-cursor/">
+    <key name="double-tap-interval" type="i">
+      <range min="150" max="1000"/>
+      <default>400</default>
+      <summary>Double-tap interval (ms)</summary>
+      <description>Maximum time between the two Ctrl taps.</description>
+    </key>
+    <key name="single-tap-ripple" type="b">
+      <default>false</default>
+      <summary>Keep GNOME's ripple on a single tap</summary>
+    </key>
+    <key name="radius" type="i">
+      <range min="20" max="600"/>
+      <default>100</default>
+      <summary>Spotlight radius (px)</summary>
+    </key>
+    <key name="dim-percent" type="i">
+      <range min="0" max="95"/>
+      <default>50</default>
+      <summary>Background dimming (%)</summary>
+    </key>
+    <key name="initial-zoom" type="d">
+      <range min="1.0" max="20.0"/>
+      <default>9.0</default>
+      <summary>Initial zoom of the spotlight animation</summary>
+    </key>
+    <key name="animation-duration" type="i">
+      <range min="0" max="2000"/>
+      <default>500</default>
+      <summary>Animation duration (ms)</summary>
+    </key>
+    <key name="show-ring" type="b">
+      <default>true</default>
+      <summary>Draw a ring around the spotlight</summary>
+    </key>
+    <key name="dismiss-on-move" type="b">
+      <default>true</default>
+      <summary>Dismiss shortly after the mouse stops moving</summary>
+    </key>
+  </schema>
+</schemalist>
