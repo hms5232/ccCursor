@@ -2,8 +2,44 @@
 
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
+import Gtk from 'gi://Gtk';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+
+const MUTTER_SCHEMA = 'org.gnome.mutter';
+const LOCATE_POINTER_KEY_SETTING = 'locate-pointer-key';
+
+const TRIGGER_KEYS = [
+    {key: 'Control_L', label: 'Left Ctrl'},
+    {key: 'Control_R', label: 'Right Ctrl'},
+    {key: 'Alt_L', label: 'Left Alt'},
+    {key: 'Alt_R', label: 'Right Alt'},
+    {key: 'Super_L', label: 'Left Super'},
+    {key: 'Super_R', label: 'Right Super'},
+    {key: 'Shift_L', label: 'Left Shift'},
+    {key: 'Shift_R', label: 'Right Shift'},
+];
+
+function triggerKeyRow() {
+    const mutterSettings = new Gio.Settings({schema_id: MUTTER_SCHEMA});
+    const options = [...TRIGGER_KEYS];
+    const current = mutterSettings.get_string(LOCATE_POINTER_KEY_SETTING);
+    if (!options.some(o => o.key === current))
+        options.push({key: current, label: current});
+
+    const row = new Adw.ComboRow({
+        title: 'Trigger key',
+        subtitle: 'Key to double-tap (sets org.gnome.mutter locate-pointer-key)',
+        model: Gtk.StringList.new(options.map(o => o.label)),
+        selected: options.findIndex(o => o.key === current),
+    });
+    row.connect('notify::selected', () => {
+        const chosen = options[row.selected];
+        if (chosen)
+            mutterSettings.set_string(LOCATE_POINTER_KEY_SETTING, chosen.key);
+    });
+    return row;
+}
 
 function spinRow(settings, key, {title, subtitle, min, max, step, digits = 0}) {
     const row = Adw.SpinRow.new_with_range(min, max, step);
@@ -34,9 +70,8 @@ export default class CcCursorPreferences extends ExtensionPreferences {
 
         const trigger = new Adw.PreferencesGroup({
             title: 'Trigger',
-            description: 'Uses GNOME\'s locate-pointer key (Left Ctrl by default). ' +
-                'Change it with: gsettings set org.gnome.mutter locate-pointer-key \'Control_R\'',
         });
+        trigger.add(triggerKeyRow());
         trigger.add(spinRow(settings, 'double-tap-interval', {
             title: 'Double-tap interval',
             subtitle: 'Maximum time between the two taps, in milliseconds',

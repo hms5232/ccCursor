@@ -34,15 +34,9 @@ gnome-extensions prefs cc-cursor@hhming.moe   # settings
 
 ## Usage
 
-- Double-tap Left Ctrl → spotlight
-- Click, scroll, press any key, or tap Ctrl again → dismiss
+- Double-tap Left Ctrl (or the trigger key chosen in Preferences) → spotlight
+- Click, scroll, press any key, or tap the trigger key again → dismiss
 - Move the mouse → the spotlight follows it and fades out shortly after you stop (can be turned off)
-
-Use a different key (e.g. Right Ctrl):
-
-```bash
-gsettings set org.gnome.mutter locate-pointer-key 'Control_R'
-```
 
 ## Debugging
 
