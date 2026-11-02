@@ -3,6 +3,8 @@
 Double-tap **Ctrl** to spotlight your mouse cursor on GNOME — like PowerToys *Find My Mouse*.
 The rest of the screen dims and a ring zooms in on the pointer. Works across multiple monitors and on Wayland.
 
+![ccCursor demo](https://i.postimg.cc/prJrnSLk/cc-Cursor-demo.gif)
+
 ## How it works
 
 GNOME already has a "locate pointer" feature: when it is on, Mutter tells GNOME Shell every time you tap Left Ctrl on its own.
