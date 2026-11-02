@@ -14,6 +14,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const IFACE_SCHEMA = 'org.gnome.desktop.interface';
 const LOCATE_POINTER_KEY = 'locate-pointer';
+const RESTORE_LOCATE_POINTER_KEY = 'restore-locate-pointer';
 
 const MOVE_THRESHOLD_PX = 8;
 const MOVE_IDLE_DISMISS_MS = 500;
@@ -121,7 +122,7 @@ class Spotlight {
         this._actor.add_effect(this._effect);
 
         [this._startX, this._startY] = global.get_pointer();
-        this._updateCenter();
+        this._updateCenter(this._startX, this._startY);
         this._effect.setRadius(this._radius * this._zoom);
 
         Main.layoutManager.uiGroup.add_child(this._actor);
@@ -135,23 +136,28 @@ class Spotlight {
             this._armTimeout(NO_GRAB_TIMEOUT_MS);
         }
 
-        this._actor.ease({
-            opacity: 255,
-            duration: Math.round(duration * 0.6),
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        });
+        if (duration <= 0) {
+            this._actor.opacity = 255;
+            this._effect.setRadius(this._radius);
+            return;
+        }
 
+        // Animate both fade-in and zoom-in from a single timeline.
         this._timeline = new Clutter.Timeline({
             actor: this._actor,
-            duration: Math.max(duration, 1),
+            duration,
+            progress_mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
         });
-        this._timeline.set_progress_mode(Clutter.AnimationMode.EASE_OUT_CUBIC);
         this._timeline.connect('new-frame', () => {
             const t = this._timeline.get_progress();
+            this._actor.opacity = Math.round(255 * Math.min(1, t / 0.6));
             this._effect.setRadius(this._radius * (this._zoom - (this._zoom - 1) * t));
             this._updateCenter();
         });
         this._timeline.connect('completed', () => {
+            this._timeline = null;
+            if (this._actor)
+                this._actor.opacity = 255;
             this._effect?.setRadius(this._radius);
         });
         this._timeline.start();
@@ -164,11 +170,10 @@ class Spotlight {
         this._hiding = true;
         this._clearTimeout();
         this._releaseGrab();
-        this._timeline?.stop();
+        this._stopTimeline();
         this._actor.reactive = false;
 
         const actor = this._actor;
-        actor.remove_all_transitions();
         actor.ease({
             opacity: 0,
             duration: FADE_OUT_MS,
@@ -187,31 +192,31 @@ class Spotlight {
     _onEvent(event) {
         switch (event.type()) {
         case Clutter.EventType.MOTION:
-        case Clutter.EventType.TOUCH_UPDATE:
-            this._updateCenter();
-            if (this._dismissOnMove && this._movedPastThreshold())
+        case Clutter.EventType.TOUCH_UPDATE: {
+            const [x, y] = event.get_coords();
+            this._updateCenter(x, y);
+            // Dismiss after pointer stops moving once it passes the threshold.
+            if (this._dismissOnMove &&
+                Math.hypot(x - this._startX, y - this._startY) > MOVE_THRESHOLD_PX)
                 this._armTimeout(MOVE_IDLE_DISMISS_MS);
-            return Clutter.EVENT_STOP;
+            break;
+        }
         case Clutter.EventType.BUTTON_PRESS:
         case Clutter.EventType.KEY_PRESS:
         case Clutter.EventType.TOUCH_BEGIN:
         case Clutter.EventType.SCROLL:
+            // consume the event
             this.hide();
-            return Clutter.EVENT_STOP;
-        default:
-            return Clutter.EVENT_STOP;
+            break;
         }
+        return Clutter.EVENT_STOP;
     }
 
-    _movedPastThreshold() {
-        const [x, y] = global.get_pointer();
-        return Math.hypot(x - this._startX, y - this._startY) > MOVE_THRESHOLD_PX;
-    }
-
-    _updateCenter() {
+    _updateCenter(x, y) {
         if (!this._effect)
             return;
-        const [x, y] = global.get_pointer();
+        if (x === undefined || y === undefined)
+            [x, y] = global.get_pointer();
         this._effect.setCenter(x, y);
     }
 
@@ -238,13 +243,17 @@ class Spotlight {
         }
     }
 
-    _destroyNow() {
-        this._clearTimeout();
-        this._releaseGrab();
+    _stopTimeline() {
         if (this._timeline) {
             this._timeline.stop();
             this._timeline = null;
         }
+    }
+
+    _destroyNow() {
+        this._clearTimeout();
+        this._releaseGrab();
+        this._stopTimeline();
         if (this._actor) {
             this._actor.destroy();
             this._actor = null;
@@ -262,10 +271,10 @@ export default class CcCursorExtension extends Extension {
 
         // Mutter only reports Ctrl taps while GNOME's "locate pointer" is on.
         this._ifaceSettings = new Gio.Settings({schema_id: IFACE_SCHEMA});
-        this._turnedOnLocatePointer = false;
         if (!this._ifaceSettings.get_boolean(LOCATE_POINTER_KEY)) {
             this._ifaceSettings.set_boolean(LOCATE_POINTER_KEY, true);
-            this._turnedOnLocatePointer = true;
+            // Remember that we enabled it so disable() can restore it.
+            this._settings.set_boolean(RESTORE_LOCATE_POINTER_KEY, true);
         }
 
         // Replace the built-in ripple handler so a tap goes to us instead.
@@ -275,15 +284,12 @@ export default class CcCursorExtension extends Extension {
             this._locatePointer = locatePointer;
             this._hadOwnShow = Object.prototype.hasOwnProperty.call(locatePointer, 'show');
             this._origShow = locatePointer.show;
-            const ext = this;
-            locatePointer.show = function (...args) {
-                ext._onTap(() => ext._origShow.apply(this, args));
+            locatePointer.show = (...args) => {
+                this._onTap(() => this._origShow.apply(locatePointer, args));
             };
-            console.log('[ccCursor] hooked Main.locatePointer');
         } else {
             this._globalSignalId = global.connect('locate-pointer',
                 () => this._onTap(null));
-            console.log('[ccCursor] Main.locatePointer not found; listening to global locate-pointer');
         }
     }
 
@@ -304,8 +310,11 @@ export default class CcCursorExtension extends Extension {
         this._spotlight?.destroy();
         this._spotlight = null;
 
-        if (this._turnedOnLocatePointer)
+        // Restore locate-pointer if we turned it on in enable().
+        if (this._settings.get_boolean(RESTORE_LOCATE_POINTER_KEY)) {
             this._ifaceSettings.set_boolean(LOCATE_POINTER_KEY, false);
+            this._settings.set_boolean(RESTORE_LOCATE_POINTER_KEY, false);
+        }
         this._ifaceSettings = null;
         this._settings = null;
     }

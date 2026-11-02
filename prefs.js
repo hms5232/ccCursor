@@ -26,7 +26,6 @@ function switchRow(settings, key, {title, subtitle}) {
 export default class CcCursorPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        window._settings = settings;
 
         const page = new Adw.PreferencesPage({
             title: 'ccCursor',

@@ -39,5 +39,9 @@
       <default>true</default>
       <summary>Dismiss shortly after the mouse stops moving</summary>
     </key>
+    <key name="restore-locate-pointer" type="b">
+      <default>false</default>
+      <summary>Whether locate-pointer was enabled by this extension and should be turned off on disable</summary>
+    </key>
   </schema>
 </schemalist>
